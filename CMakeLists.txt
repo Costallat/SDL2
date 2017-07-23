@@ -298,25 +298,6 @@ if(EMSCRIPTEN)
   set(SDL_DLOPEN_ENABLED_BY_DEFAULT OFF)
 endif()
 
-# When defined, respect CMake's BUILD_SHARED_LIBS setting:
-set(SDL_STATIC_ENABLED_BY_DEFAULT ON)
-if (NOT DEFINED SDL_SHARED_ENABLED_BY_DEFAULT)
-  # ...unless decided already (as for EMSCRIPTEN)
-
-  set(SDL_SHARED_ENABLED_BY_DEFAULT OFF)
-
-  if (NOT DEFINED BUILD_SHARED_LIBS)
-    # No preference? Build both, just like the AC/AM configure
-    set(SDL_SHARED_ENABLED_BY_DEFAULT ON)
-
-  elseif (BUILD_SHARED_LIBS)
-    # In this case, we assume the user wants a shared lib and don't build
-    # the static one
-    set(SDL_SHARED_ENABLED_BY_DEFAULT ON)
-    set(SDL_STATIC_ENABLED_BY_DEFAULT OFF)
-  endif()
-endif()
-
 set(SDL_SUBSYSTEMS
     Atomic Audio Video Render Events Joystick Haptic Power Threads Timers
     File Loadso CPUinfo Filesystem Dlopen Sensor Locale)
@@ -1488,7 +1469,7 @@ elseif(WINDOWS)
     if(WINDOWS_STORE)
       set(SDL_VIDEO_DRIVER_WINRT 1)
       file(GLOB WIN_VIDEO_SOURCES
-        ${SDL2_SOURCE_DIR}/src/video/winrt/*.c 
+        ${SDL2_SOURCE_DIR}/src/video/winrt/*.c
         ${SDL2_SOURCE_DIR}/src/video/winrt/*.cpp
         ${SDL2_SOURCE_DIR}/src/render/direct3d11/*.cpp
         )
@@ -2080,57 +2061,6 @@ endif()
 listtostr(EXTRA_CFLAGS _EXTRA_CFLAGS)
 set(EXTRA_CFLAGS ${_EXTRA_CFLAGS})
 
-# Compat helpers for the configuration files
-if(NOT CMAKE_HOST_WIN32)
-  # TODO: we need a Windows script, too
-  execute_process(COMMAND sh ${SDL2_SOURCE_DIR}/build-scripts/updaterev.sh
-    WORKING_DIRECTORY ${SDL2_BINARY_DIR})
-endif()
-if(NOT WINDOWS OR CYGWIN)
-  set(prefix ${CMAKE_INSTALL_PREFIX})
-  set(exec_prefix "\${prefix}")
-  set(libdir "\${exec_prefix}/lib${LIB_SUFFIX}")
-  set(bindir "\${exec_prefix}/bin")
-  set(includedir "\${prefix}/include")
-  if(SDL_STATIC)
-    set(ENABLE_STATIC_TRUE "")
-    set(ENABLE_STATIC_FALSE "#")
-  else()
-    set(ENABLE_STATIC_TRUE "#")
-    set(ENABLE_STATIC_FALSE "")
-  endif()
-  if(SDL_SHARED)
-    set(PKG_CONFIG_LIBS_PRIV "
-Libs.private:")
-    set(ENABLE_SHARED_TRUE "")
-    set(ENABLE_SHARED_FALSE "#")
-  else()
-    set(PKG_CONFIG_LIBS_PRIV "")
-    set(ENABLE_SHARED_TRUE "#")
-    set(ENABLE_SHARED_FALSE "")
-  endif()
-
-  # Clean up the different lists
-  listtostr(EXTRA_LIBS _EXTRA_LIBS "-l")
-  set(SDL_STATIC_LIBS ${EXTRA_LDFLAGS} ${_EXTRA_LIBS})
-  list(REMOVE_DUPLICATES SDL_STATIC_LIBS)
-  listtostr(SDL_STATIC_LIBS _SDL_STATIC_LIBS)
-  set(SDL_STATIC_LIBS ${_SDL_STATIC_LIBS})
-  listtostr(SDL_LIBS _SDL_LIBS)
-  set(SDL_LIBS ${_SDL_LIBS})
-
-  # MESSAGE(STATUS "SDL_LIBS: ${SDL_LIBS}")
-  # MESSAGE(STATUS "SDL_STATIC_LIBS: ${SDL_STATIC_LIBS}")
-
-  configure_file("${SDL2_SOURCE_DIR}/sdl2.pc.in"
-    "${SDL2_BINARY_DIR}/sdl2.pc" @ONLY)
-  configure_file("${SDL2_SOURCE_DIR}/sdl2-config.in"
-    "${SDL2_BINARY_DIR}/sdl2-config")
-  configure_file("${SDL2_SOURCE_DIR}/sdl2-config.in"
-    "${SDL2_BINARY_DIR}/sdl2-config" @ONLY)
-  configure_file("${SDL2_SOURCE_DIR}/SDL2.spec.in"
-    "${SDL2_BINARY_DIR}/SDL2.spec" @ONLY)
-endif()
 
 ##### Info output #####
 message(STATUS "")
@@ -2168,6 +2098,7 @@ if(SDL_STATIC)
     message(STATUS " Build Static Library with Position Independent Code: ${SDL_STATIC_PIC}")
 endif()
 message(STATUS "")
+
 if(UNIX)
   message(STATUS "If something was not detected, although the libraries")
   message(STATUS "were installed, then make sure you have set the")
@@ -2287,25 +2218,26 @@ if(SDL_STATIC)
   # libraries - do we need to consider this?
   set(_INSTALL_LIBS "SDL2-static" ${_INSTALL_LIBS})
   target_link_libraries(SDL2-static ${EXTRA_LIBS} ${EXTRA_LDFLAGS})
-  target_include_directories(SDL2-static PUBLIC "$<BUILD_INTERFACE:${SDL2_SOURCE_DIR}/include>" $<INSTALL_INTERFACE:include> $<INSTALL_INTERFACE:include/SDL2>)
-  if(ANDROID)
-    target_include_directories(SDL2-static PRIVATE ${ANDROID_NDK}/sources/android/cpufeatures)
-  else()
-    set_target_properties(SDL2-static PROPERTIES DEBUG_POSTFIX "${SDL_CMAKE_DEBUG_POSTFIX}")
-  endif()
-  if(IOS OR TVOS)
-    set_property(TARGET SDL2-static APPEND_STRING PROPERTY COMPILE_FLAGS "-fobjc-arc")
-  endif()
+  target_include_directories(SDL2-static PUBLIC $<INSTALL_INTERFACE:include>)
+
+if(WIN32)
+    # Some stupid crap going on with sdl2 on windows, need to explicitly link in
+    # a bunch of c std lib files.
+    # Fix is from: https://forums.libsdl.org/viewtopic.php?p=49026
+
+    set(EXTRA_LIBS
+        debug msvcrtd optimized msvcrt
+        debug vcruntimed optimized vcruntimed
+        debug ucrtd optimized ucrtd
+        ${EXTRA_LIBS}
+    )
 endif()
 
-##### Tests #####
+add_library(SDL2 ${SOURCE_FILES})
+set_target_properties(SDL2 PROPERTIES OUTPUT_NAME "SDL2")
 
-if(SDL_TEST)
-  file(GLOB TEST_SOURCES ${SDL2_SOURCE_DIR}/src/test/*.c)
-  add_library(SDL2_test STATIC ${TEST_SOURCES})
-
-  add_subdirectory(test)
-endif()
+set(_INSTALL_LIBS "SDL2" ${_INSTALL_LIBS})
+target_link_libraries(SDL2 ${EXTRA_LIBS} ${EXTRA_LDFLAGS})
 
 #----------------------------------------------------------
 #Generate CMake config file.
