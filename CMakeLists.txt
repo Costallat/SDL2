@@ -2002,13 +2002,7 @@ endif()
 # endif()
 
 
-check_c_source_compiles("
-    #ifndef __ANDROID_
-        #error asdf
-    #endif
-    " IS_ANDROID)
-
-if (NOT (IS_ANDROID OR APPLE))
+if (NOT (ANDROID OR APPLE))
     add_definitions(-DUSING_GENERATED_CONFIG_H)
     configure_file("${SDL2_SOURCE_DIR}/include/SDL_config.h.cmake"
       "${SDL2_BINARY_DIR}/include/SDL_config.h")
@@ -2160,11 +2154,7 @@ install(TARGETS ${_INSTALL_LIBS}
   RUNTIME DESTINATION bin)
 
 ##### Export files #####
-if (WINDOWS)
-  set(PKG_PREFIX "cmake")
-else ()
-  set(PKG_PREFIX "lib${LIB_SUFFIX}/cmake/SDL2")
-endif ()
+  set(PKG_PREFIX "lib/cmake/SDL2")
 
 include(CMakePackageConfigHelpers)
 write_basic_package_version_file("${CMAKE_BINARY_DIR}/SDL2ConfigVersion.cmake"
@@ -2174,7 +2164,6 @@ write_basic_package_version_file("${CMAKE_BINARY_DIR}/SDL2ConfigVersion.cmake"
 
 install(
   FILES
-    ${CMAKE_CURRENT_SOURCE_DIR}/SDL2Config.cmake
     ${CMAKE_BINARY_DIR}/SDL2ConfigVersion.cmake
   DESTINATION ${PKG_PREFIX}
   COMPONENT Devel
