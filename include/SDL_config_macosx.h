@@ -203,18 +203,11 @@
 #endif
 
 /* Metal only supported on 64-bit architectures with 10.11+ */
-#if TARGET_RT_64_BIT && (MAC_OS_X_VERSION_MAX_ALLOWED >= 101100)
-#define SDL_PLATFORM_SUPPORTS_METAL    1
-#else
-#define SDL_PLATFORM_SUPPORTS_METAL    0
-#endif
-
-#ifndef SDL_VIDEO_RENDER_METAL
-#if SDL_PLATFORM_SUPPORTS_METAL
-#define SDL_VIDEO_RENDER_METAL    1
-#else
+//#if TARGET_CPU_X86_64 && (MAC_OS_X_VERSION_MAX_ALLOWED >= 101100)
+//#define SDL_VIDEO_RENDER_METAL    1
+//#else
 #define SDL_VIDEO_RENDER_METAL    0
-#endif
+//#endif
 #endif
 
 /* Enable OpenGL support */
